@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Scheduling Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h1>CPU Scheduling Simulator</h1>
+    
+    <label>Select Algorithm: </label>
+    <select id="algorithm">
+        <option value="FCFS">FCFS</option>
+        <option value="SJF">SJF</option>
+        <option value="Priority">Priority</option>
+        <option value="Round Robin">Round Robin</option>
+    </select>
+
+    <label>Process Burst Times (comma separated): </label>
+    <input type="text" id="burst_times" placeholder="E.g., 5,3,8">
+    
+    <label>Priority (comma separated, for Priority Scheduling only): </label>
+    <input type="text" id="priorities" placeholder="E.g., 3,1,2">
+    
+    <label>Time Quantum (for Round Robin only): </label>
+    <input type="text" id="quantum" placeholder="E.g., 2">
+    
+    <button onclick="runSimulation()">Run Simulation</button>
+
+    <h2>Execution Order</h2>
+    <img id="graph" src="" style="width: 600px; height: 300px; display: none;">
+
+    <script>
+        function runSimulation() {
+            let algorithm = document.getElementById("algorithm").value;
+            let burst_times = document.getElementById("burst_times").value;
+            let priorities = document.getElementById("priorities").value;
+            let quantum = document.getElementById("quantum").value;
+
+            let data = { algorithm, burst_times };
+            if (algorithm === "Priority") {
+                data["priorities"] = priorities;
+            }
+            if (algorithm === "Round Robin") {
+                data["quantum"] = quantum;
+            }
+
+            fetch("/simulate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.graph_url) {
+                    document.getElementById("graph").src = "data:image/png;base64," + result.graph_url;
+                    document.getElementById("graph").style.display = "block";
+                }
+            });
+        }
+    </script>
+</body>
+</html>
