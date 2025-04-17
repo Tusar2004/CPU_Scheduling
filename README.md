@@ -1,6 +1,6 @@
 # 💻 CPU Scheduling Algorithm Simulator 🌈  
 
-![Demo Banner](https://imgur.com/a/2nlnNJu)  
+![Demo Banner](https://imgur.com/a/2nlnNJu.jpg)  
 
 ## ✨ Features  
 ✅ **6 Scheduling Algorithms** (FCFS, SJF, Round Robin, etc.)  
@@ -15,7 +15,7 @@
 ## 🖥️ Screenshots  
 | Algorithm Selection | Results |  
 |---------------------|---------|  
-| ![Selection](https://imgur.com/xqpo8BH) | ![Results](https://imgur.com/neGskmb) |  
+| ![Selection](https://imgur.com/xqpo8BH.jpg) | ![Results](https://imgur.com/neGskmb.jpg) |  
 
 ## 🛠️ Tech Stack  
 - **Frontend**: HTML, Tailwind CSS, JavaScript  
