@@ -1,64 +1,395 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CPU Scheduling Simulator</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
-<body>
-    <h1>CPU Scheduling Simulator</h1>
-    
-    <label>Select Algorithm: </label>
-    <select id="algorithm">
-        <option value="FCFS">FCFS</option>
-        <option value="SJF">SJF</option>
-        <option value="Priority">Priority</option>
-        <option value="Round Robin">Round Robin</option>
-    </select>
-
-    <label>Process Burst Times (comma separated): </label>
-    <input type="text" id="burst_times" placeholder="E.g., 5,3,8">
-    
-    <label>Priority (comma separated, for Priority Scheduling only): </label>
-    <input type="text" id="priorities" placeholder="E.g., 3,1,2">
-    
-    <label>Time Quantum (for Round Robin only): </label>
-    <input type="text" id="quantum" placeholder="E.g., 2">
-    
-    <button onclick="runSimulation()">Run Simulation</button>
-
-    <h2>Execution Order</h2>
-    <img id="graph" src="" style="width: 600px; height: 300px; display: none;">
-
-    <script>
-        function runSimulation() {
-            let algorithm = document.getElementById("algorithm").value;
-            let burst_times = document.getElementById("burst_times").value;
-            let priorities = document.getElementById("priorities").value;
-            let quantum = document.getElementById("quantum").value;
-
-            let data = { algorithm, burst_times };
-            if (algorithm === "Priority") {
-                data["priorities"] = priorities;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced CPU Scheduling Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: {
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            },
+            secondary: {
+              500: '#6366f1',
+              600: '#4f46e5',
+            },
+            dark: {
+              800: '#1e293b',
+              900: '#0f172a',
+            },
+            accent: {
+              500: '#10b981',
+              600: '#059669',
             }
-            if (algorithm === "Round Robin") {
-                data["quantum"] = quantum;
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.3s ease-out forwards',
+            'fade-out': 'fadeOut 0.3s ease-out forwards',
+            'spin': 'spin 1s linear infinite',
+            'pulse': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 3s ease-in-out infinite',
+          },
+          keyframes: {
+            fadeIn: {
+              'from': { opacity: '0', transform: 'translateY(10px)' },
+              'to': { opacity: '1', transform: 'translateY(0)' },
+            },
+            fadeOut: {
+              'from': { opacity: '1', transform: 'translateY(0)' },
+              'to': { opacity: '0', transform: 'translateY(10px)' },
+            },
+            spin: {
+              'from': { transform: 'rotate(0deg)' },
+              'to': { transform: 'rotate(360deg)' },
+            },
+            pulse: {
+              '0%, 100%': { opacity: '1' },
+              '50%': { opacity: '0.5' },
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
             }
-
-            fetch("/simulate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.graph_url) {
-                    document.getElementById("graph").src = "data:image/png;base64," + result.graph_url;
-                    document.getElementById("graph").style.display = "block";
-                }
-            });
+          }
         }
-    </script>
+      }
+    }
+  </script>
+  <style>
+    .process-table {
+      border-collapse: separate;
+      border-spacing: 0 0.5rem;
+    }
+    .process-table th {
+      @apply bg-gray-100/70 text-gray-700 font-medium;
+    }
+    .process-table td, .process-table th {
+      @apply px-4 py-2 text-center;
+    }
+    .process-table tr {
+      @apply bg-white/70 hover:bg-white/90 transition-colors;
+    }
+    .context-switch {
+      animation: pulse 2s infinite;
+    }
+    .bg-grid {
+      background-image: linear-gradient(to right, rgba(0,0,0,0.05) 1px, transparent 1px),
+                        linear-gradient(to bottom, rgba(0,0,0,0.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .card-hover {
+      transition: all 0.3s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    .algorithm-card {
+      transition: all 0.3s ease;
+    }
+    .algorithm-card:hover {
+      transform: scale(1.03);
+    }
+    .algorithm-card.selected {
+      @apply ring-2 ring-primary-500;
+      transform: scale(1.03);
+    }
+    .transparent-card {
+      background-color: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(10px);
+    }
+    .transparent-card:hover {
+      background-color: rgba(255, 255, 255, 0.9);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-cover bg-center bg-no-repeat bg-fixed" id="main-bg" style="background-image: url('https://images.unsplash.com/photo-1639762681057-408e52192e55?q=80&w=2232&auto=format&fit=crop')">
+  <!-- Background selector -->
+  <div class="fixed bottom-4 right-4 group z-50">
+    <button id="bg-toggle" class="bg-white/90 p-3 rounded-full shadow-lg hover:bg-white transition-all">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-800" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+    </button>
+    
+    <div id="bg-options" class="hidden group-hover:block absolute bottom-full right-0 mb-2 bg-white/90 backdrop-blur-sm p-4 rounded-xl shadow-xl w-64">
+      <h3 class="font-medium text-gray-700 mb-2">Choose Background</h3>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="bg-option h-20 rounded-lg bg-cover cursor-pointer bg-center selected" 
+             style="background-image: url('https://images.unsplash.com/photo-1639762681057-408e52192e55?q=80&w=2232&auto=format&fit=crop')"
+             data-bg="https://images.unsplash.com/photo-1639762681057-408e52192e55?q=80&w=2232&auto=format&fit=crop"></div>
+        <div class="bg-option h-20 rounded-lg bg-cover cursor-pointer bg-center" 
+             style="background-image: url('https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop')"
+             data-bg="https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=2070&auto=format&fit=crop"></div>
+        <div class="bg-option h-20 rounded-lg bg-cover cursor-pointer bg-center" 
+             style="background-image: url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop')"
+             data-bg="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop"></div>
+        <div class="bg-option h-20 rounded-lg bg-cover cursor-pointer bg-center" 
+             style="background-image: url('https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1986&auto=format&fit=crop')"
+             data-bg="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1986&auto=format&fit=crop"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="min-h-screen bg-gradient-to-br from-dark-900/80 to-dark-800/90 flex items-center justify-center p-4">
+    <div class="w-full max-w-6xl bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8 animate__animated animate__fadeIn">
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold bg-gradient-to-r from-primary-600 to-secondary-600 bg-clip-text text-transparent mb-2">
+          <span class="">CPU Scheduling Simulator</span>
+        </h1>
+        <p class="text-gray-700 animate__animated animate__fadeIn animate__delay-1s">Visualize and analyze different CPU scheduling algorithms with comprehensive metrics</p>
+      </div>
+
+      <!-- Algorithm Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div class="algorithm-card transparent-card p-3 rounded-lg shadow-sm cursor-pointer border border-white/30 flex flex-col items-center" data-algo="FCFS">
+          <img src="https://img.icons8.com/color/96/000000/queue.png" class="h-12 w-12 mb-2" alt="FCFS">
+          <span class="text-sm font-medium text-center text-gray-800">FCFS</span>
+        </div>
+        <div class="algorithm-card transparent-card p-3 rounded-lg shadow-sm cursor-pointer border border-white/30 flex flex-col items-center" data-algo="SJF">
+          <img src="https://img.icons8.com/color/96/000000/stopwatch.png" class="h-12 w-12 mb-2" alt="SJF">
+          <span class="text-sm font-medium text-center text-gray-800">SJF</span>
+        </div>
+        <div class="algorithm-card transparent-card p-3 rounded-lg shadow-sm cursor-pointer border border-white/30 flex flex-col items-center" data-algo="SJRF">
+          <img src="data:image/jpeg;base64,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" class="h-12 w-12 mb-2" alt="SJRF">
+          <span class="text-sm font-medium text-center text-gray-800">SJRF</span>
+        </div>
+        <div class="algorithm-card transparent-card p-3 rounded-lg shadow-sm cursor-pointer border border-white/30 flex flex-col items-center" data-algo="Priority">
+          <img src="data:image/png;base64,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" class="h-12 w-12 mb-2" alt="Priority">
+          <span class="text-sm font-medium text-center text-gray-800">Priority</span>
+        </div>
+        <div class="algorithm-card transparent-card p-3 rounded-lg shadow-sm cursor-pointer border border-white/30 flex flex-col items-center" data-algo="PriorityP">
+          <img src="data:image/png;base64,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" class="h-12 w-12 mb-2" alt="PriorityP">
+          <span class="text-sm font-medium text-center text-gray-800">PriorityP</span>
+        </div>
+        <div class="algorithm-card transparent-card p-3 rounded-lg shadow-sm cursor-pointer border border-white/30 flex flex-col items-center" data-algo="RoundRobin">
+          <img src="https://www.svgrepo.com/show/106247/circular-arrows.svg" class="h-12 w-12 mb-2" alt="RoundRobin">
+          <span class="text-sm font-medium text-center text-gray-800">Round Robin</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Process Input Table -->
+        <div class="lg:col-span-1 transparent-card p-4 rounded-xl border border-white/30 card-hover">
+          <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-primary-600" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+            </svg>
+            Process Details
+          </h2>
+          <div class="overflow-x-auto">
+            <table class="process-table w-full">
+              <thead>
+                <tr>
+                  <th class="rounded-tl-lg">Process</th>
+                  <th>Arrival Time</th>
+                  <th>Burst Time</th>
+                  <th class="rounded-tr-lg">Priority</th>
+                </tr>
+              </thead>
+              <tbody id="process-table-body">
+                <!-- Rows will be added dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-4 flex space-x-2">
+            <button onclick="addProcess()" class="flex-1 bg-accent-500 hover:bg-accent-600 text-white py-2 px-4 rounded-lg transition flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+              </svg>
+              Add Process
+            </button>
+            <button onclick="removeProcess()" class="flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg transition flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clip-rule="evenodd" />
+              </svg>
+              Remove Last
+            </button>
+          </div>
+        </div>
+
+        <!-- Algorithm Configuration -->
+        <div class="lg:col-span-1 space-y-6">
+          <div class="transparent-card p-4 rounded-xl border border-white/30 card-hover">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-secondary-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+              </svg>
+              Algorithm Configuration
+            </h2>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Scheduling Algorithm</label>
+                <select id="algorithm" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white/80">
+                  <option value="FCFS">First Come First Serve (FCFS)</option>
+                  <option value="SJF">Shortest Job First (SJF)</option>
+                  <option value="SJRF">Shortest Job Remaining First (Preemptive SJF)</option>
+                  <option value="Priority">Priority Scheduling</option>
+                  <option value="PriorityP">Preemptive Priority Scheduling</option>
+                  <option value="RoundRobin">Round Robin</option>
+                </select>
+              </div>
+
+              <div id="quantum-container" class="hidden space-y-1">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Time Quantum</label>
+                <input type="number" id="quantum" min="1" value="2" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white/80">
+              </div>
+
+              <div id="aging-container" class="hidden space-y-1">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Aging Interval (for Priority)</label>
+                <input type="number" id="aging-interval" min="1" value="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all bg-white/80">
+              </div>
+            </div>
+          </div>
+
+          <div class="transparent-card p-4 rounded-xl border border-white/30 card-hover">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-accent-600" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+              </svg>
+              Simulation Controls
+            </h2>
+            <button id="run-btn" onclick="runSimulation()" class="w-full bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 hover:scale-[1.02] shadow-lg flex items-center justify-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+              </svg>
+              Run Simulation
+            </button>
+            <div id="loading-indicator" class="mt-2 hidden text-center text-primary-600">
+              <svg class="animate-spin h-5 w-5 inline mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Processing...
+            </div>
+          </div>
+        </div>
+
+        <!-- Results Preview -->
+        <div class="lg:col-span-1 transparent-card p-4 rounded-xl border border-white/30 card-hover">
+          <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-secondary-600" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+              <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+            </svg>
+            Queue Visualization
+          </h2>
+          <div id="queue-visualization" class="min-h-[200px] bg-white/70 rounded-lg p-4 border border-gray-300">
+            <p class="text-gray-500 text-center py-8">Queue will be visualized here during simulation</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div id="results" class="mt-8 hidden animate__animated animate__fadeIn">
+        <div class="transparent-card p-6 rounded-xl border border-white/30 mb-6">
+          <h2 class="text-2xl font-semibold text-center text-gray-800 mb-6">Simulation Results</h2>
+          
+          <!-- Metrics -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white/70 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center mb-2">
+                <div class="p-2 rounded-full bg-primary-100/70 mr-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 class="text-sm font-medium text-gray-700">Avg Waiting Time</h3>
+              </div>
+              <p id="avg_waiting" class="text-2xl font-bold text-primary-600">0</p>
+            </div>
+            <div class="bg-white/70 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center mb-2">
+                <div class="p-2 rounded-full bg-primary-100/70 mr-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 class="text-sm font-medium text-gray-700">Avg Turnaround Time</h3>
+              </div>
+              <p id="avg_turnaround" class="text-2xl font-bold text-primary-600">0</p>
+            </div>
+            <div class="bg-white/70 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center mb-2">
+                <div class="p-2 rounded-full bg-accent-100/70 mr-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h3 class="text-sm font-medium text-gray-700">Throughput</h3>
+              </div>
+              <p id="throughput" class="text-2xl font-bold text-accent-600">0</p>
+            </div>
+            <div class="bg-white/70 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+              <div class="flex items-center mb-2">
+                <div class="p-2 rounded-full bg-secondary-100/70 mr-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-secondary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h3 class="text-sm font-medium text-gray-700">Context Switches</h3>
+              </div>
+              <p id="context_switches" class="text-2xl font-bold text-secondary-600">0</p>
+            </div>
+          </div>
+          
+          <!-- Gantt Chart -->
+          <div class="bg-white/70 p-4 rounded-lg shadow-sm mb-6 hover:shadow-md transition-shadow">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">Execution Timeline</h3>
+            <div class="overflow-x-auto">
+              <img id="graph" src="" class="w-full h-auto rounded-lg border border-gray-300">
+            </div>
+          </div>
+
+          <!-- Detailed Results Table -->
+          <div class="bg-white/70 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">Process Metrics</h3>
+            <div class="overflow-x-auto">
+              <table class="process-table w-full">
+                <thead>
+                  <tr>
+                    <th class="rounded-tl-lg">Process</th>
+                    <th>Arrival Time</th>
+                    <th>Burst Time</th>
+                    <th>Priority</th>
+                    <th>Start Time</th>
+                    <th>Finish Time</th>
+                    <th>Waiting Time</th>
+                    <th class="rounded-tr-lg">Turnaround Time</th>
+                  </tr>
+                </thead>
+                <tbody id="results-table-body">
+                  <!-- Results will be populated here -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-4 right-4 hidden z-50 animate__animated animate__fadeInRight">
+    <div class="bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+      </svg>
+      <span id="toast-content"></span>
+    </div>
+  </div>
+
+  <script src="/static/script.js"></script>
 </body>
 </html>
